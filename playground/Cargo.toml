@@ -12,3 +12,4 @@ opt-level = 3
 [dependencies]
 shadowcasting = { path = "../../shadowcasting" }
 bevy = "0.10.1"
+rand = "0.8.5"

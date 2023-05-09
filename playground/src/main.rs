@@ -1,5 +1,10 @@
 use bevy::prelude::*;
 use bevy::window::WindowMode;
+use crate::camera::CameraPlugin;
+use crate::map::MapPlugin;
+
+mod camera;
+mod map;
 
 fn main() {
     App::new()
@@ -18,5 +23,7 @@ fn main() {
             )
             .set(ImagePlugin::default_nearest())
         )
+        .add_plugin(CameraPlugin)
+        .add_plugin(MapPlugin)
         .run()
 }
