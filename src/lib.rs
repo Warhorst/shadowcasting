@@ -8,28 +8,23 @@ pub struct ShadowCasting {
 
 impl ShadowCasting {
     pub fn new(
-        x: isize,
-        y: isize,
-        tile_positions: impl IntoIterator<Item=(isize, isize)>,
-        wall_positions: impl IntoIterator<Item=(isize, isize)>,
+        start_x: isize,
+        start_y: isize,
+        tiles: impl IntoIterator<Item=(isize, isize, bool)>,
     ) -> Self {
         let mut tile_state_map = HashMap::new();
 
-        tile_positions.into_iter().for_each(|(x, y)| {
-            tile_state_map.insert(Tile::new(x, y), TileState { visible: false, blocking: false });
-        });
-
-        wall_positions.into_iter().for_each(|(x, y)| {
-            tile_state_map.insert(Tile::new(x, y), TileState { visible: false, blocking: true });
+        tiles.into_iter().for_each(|(x, y, blocking)| {
+            tile_state_map.insert(Tile::new(x, y), TileState { visible: false, blocking });
         });
 
         ShadowCasting {
-            origin: Tile::new(x, y),
+            origin: Tile::new(start_x, start_y),
             tile_state_map,
         }
     }
 
-    pub fn compute_fov(&mut self) -> HashSet<(isize, isize)> {
+    pub fn compute_los(&mut self) -> HashSet<(isize, isize)> {
         self.mark_visible(self.origin);
 
         for sector in [North, East, South, West] {
