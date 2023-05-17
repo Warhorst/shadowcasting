@@ -1,6 +1,13 @@
 use std::collections::{HashMap, HashSet};
+
 use Sector::*;
 
+mod new;
+
+// see
+// http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting
+// https://journal.stuffwithstuff.com/2015/09/07/what-the-hero-sees/
+// https://www.roguebasin.com/index.php?title=Field_of_Vision
 pub struct ShadowCasting {
     origin: Tile,
     tile_state_map: HashMap<Tile, TileState>,
