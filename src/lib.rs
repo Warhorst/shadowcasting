@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use Sector::*;
 
 mod new;
+pub mod other;
 
 // see
 // http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting

@@ -31,20 +31,35 @@ impl ShadowCasting {
     }
 
     fn scan_octant(&mut self, octant: Octant, depth: usize, start_slope: f32, end_slope: f32) {
-        // Cases:
+        // (x1 - x2) / (y1 - y2)
+        //
+        // Origin: (0,0)
+        // left: (9,9)
+        // (0 - 9) / (0 - 9) = 1
+        //
+        // Origin: (0,0)
+        // right: (0, 9)
+        // (0 - 0) / (0 - 9) = 0
+
+        // Origin:(0,0)
+        // left: (9, 12)
+        // (0 - 9) / (0 - 12) = 3/4 = 0.75
+
+        // left: (9, 11)
+        // (0 - 9) / (0 - 11) = 9/11 = 0.82
+
+        // right: (7, 12)
+        // = 7/12 = 0.6
 
         for tile in octant.get_tiles(self.origin, depth) {
-            // slope (0, 0) -> (-9, 11)
-            // (0 - (-9)) / (0 - (11)) = 9 / -11 = -0.82
+
         }
 
-        // 1. just floor
-
-        // 2. Block, but previous was floor
-        // -> adapt end slope
-
-        // 3. Block, but previous was block
-        // -> adapt start slope
+        // 1. Go through every tile which is between start and end slope
+        // 2. check the tile
+        // - if floor -> set visible
+        // - if block, but previous was floor -> adapt end slope, start scan at next line
+        // - if floor, but previous was block -> adapt start slope
     }
 
     fn tile_blocks_view(&self, tile: Tile) -> bool {
