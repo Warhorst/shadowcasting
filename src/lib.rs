@@ -4,6 +4,7 @@ use Sector::*;
 
 mod new;
 pub mod other;
+pub mod my;
 
 // see
 // http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting

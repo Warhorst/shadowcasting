@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::utils::{HashMap, HashSet};
 use shadowcasting::other::get_visible_points;
+use shadowcasting::my::calculate_los;
 use shadowcasting::ShadowCasting;
 use crate::constants::{MAP_HEIGHT, MAP_WIDTH};
 use crate::current_position::CurrentPosition;
@@ -80,18 +81,18 @@ fn update_los_new(
             .map(|tile| ((tile.x as isize, tile.y as isize), tile.tile_type))
             .collect::<HashMap<_, _>>();
 
-        let allows_light = |(x, y)| match tile_type_map.get(&(x, y)) {
+        let blocks_view = |(x, y)| match tile_type_map.get(&(x, y)) {
             Some(tile_type) => match tile_type {
-                TileType::Floor => true,
-                TileType::Wall => false
+                TileType::Floor => false,
+                TileType::Wall => true
             },
-            None => true
+            None => false
         };
 
-        let visible_points = get_visible_points(
+        let visible_points = calculate_los(
             (pos.x as isize, pos.y as isize),
-            allows_light,
-            120,
+            blocks_view,
+            10,
         )
             .into_iter()
             .filter(|(x, y)| *x >= 0 && *y >= 0 && *x < MAP_WIDTH as isize && *y < MAP_HEIGHT as isize)

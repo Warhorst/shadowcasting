@@ -55,14 +55,16 @@ fn cast_light(
 
     let radius_squared = radius ^ 2;
 
-    for j in row..(radius + 1) {
+    for r in row..=radius {
         let mut new_start = 0.0;
-        let (mut dx, dy) = (-j - 1, -j);
+        // initial: (-2, -1)
+        let (mut dx, dy) = (-r - 1, -r);
         let mut blocked = false;
 
         while dx <= 0 {
             dx += 1;
 
+            // xx 1, xy 0, yx 0, yy 1
             let point = (origin.0 + dx * xx + dy * xy, origin.1 + dx * yx + dy * yy);
 
             let (l_slope, r_slope) = ((dx as f32 - 0.5) / (dy as f32 + 0.5), (dx as f32 + 0.5) / (dy as f32 - 0.5));
@@ -85,13 +87,13 @@ fn cast_light(
                         start = new_start;
                     }
                 } else {
-                    if !allows_light(point) && j < radius {
+                    if !allows_light(point) && r < radius {
                         blocked = true;
                         cast_light(
                             los_cache,
                             allows_light,
                             origin,
-                            j + 1,
+                            r + 1,
                             start,
                             l_slope,
                             radius,
