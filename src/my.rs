@@ -23,10 +23,7 @@ impl ShadowCasting {
     }
 
     pub fn calculate_los(mut self) -> HashSet<(isize, isize)> {
-        println!("origin: {:?}", self.origin);
-
         for octant in Octant::octants() {
-            println!("{:?}", octant);
             self.scan_octant(octant, 1, 1.0, 0.0)
         }
 
@@ -37,7 +34,7 @@ impl ShadowCasting {
         &mut self,
         octant: Octant,
         depth: usize,
-        start_slope: f32,
+        mut start_slope: f32,
         end_slope: f32,
     ) {
         if depth == self.max_distance {
@@ -52,48 +49,46 @@ impl ShadowCasting {
             let left_slope = Self::calculate_left_slope(temp_pos);
             let right_slope = Self::calculate_right_slope(temp_pos);
 
-            println!("template pos: {:?}", (i, depth));
-            println!("world pos: {:?}", pos);
-            println!("left: {}", left_slope);
-            println!("right: {}", right_slope);
+            // if the rightmost slope of the position is in front of the visible
+            // area, move along until it is in it
+            if right_slope >= start_slope {
+                continue
+            }
 
-            if left_slope < end_slope {
+            // if the leftmost slope is behind the visible area,
+            // nothing can be set visible anymore. Return
+            if left_slope <= end_slope {
                 return;
             }
 
-            if right_slope > start_slope {
-                continue;
-            }
-
-            // TODO prev pos?
-            if self.pos_blocks_view(pos) {
-                self.set_pos_visible(pos);
+            if (prev_pos.is_none() || !self.pos_blocks_view(prev_pos.unwrap())) && self.pos_blocks_view(pos) {
                 self.scan_octant(octant, depth + 1, start_slope, left_slope);
-            } else {
-                self.set_pos_visible(pos);
+            } else if prev_pos.is_some() && self.pos_blocks_view(prev_pos.unwrap()) && !self.pos_blocks_view(pos) {
+                start_slope = right_slope;
             }
 
-
-            // if end_slope < left_slope {
-            //     return;
-            // }
-            //
-            // if right_slope < start_slope {
-            //     return;
-            // }
+            self.set_pos_visible(pos);
 
             prev_pos = Some(pos)
+        }
+
+        // if the last position (0, depth) was blocking, everything behind it should also not be visible
+        if prev_pos.is_some() && self.pos_blocks_view(prev_pos.unwrap()) {
+            let new_start = Self::calculate_right_slope((0, depth as isize));
+            start_slope = new_start
         }
 
         self.scan_octant(octant, depth + 1, start_slope, end_slope)
     }
 
     fn calculate_left_slope((x, y): (isize, isize)) -> f32 {
-        (x as f32 + 0.5) / (y as f32 - 0.5)
+        // (x as f32 + 0.5) / (y as f32 - 0.5)
+        (x as f32 + 1.0) / (y as f32 + 1.0)
     }
 
     fn calculate_right_slope((x, y): (isize, isize)) -> f32 {
-        (x as f32 - 0.5) / (y as f32 + 0.5)
+        // (x as f32 - 0.5) / (y as f32 + 0.5)
+        x as f32 / (y as f32 + 2.0)
     }
 
     fn pos_in_visible_area(pos: (isize, isize), start_slope: f32, end_slope: f32) -> bool {
@@ -181,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_slopes() {
-        for x in 1..=12 {
+        for x in 0..=12 {
             for y in 1..=12 {
                 if x > y {
                     continue

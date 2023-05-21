@@ -83,7 +83,7 @@ fn update_los_new(
                     TileType::Floor => false,
                     TileType::Wall => true
                 })),
-            10
+            30
         );
 
 
