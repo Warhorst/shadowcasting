@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use rand::Rng;
 use TileType::*;
 use crate::constants::{MAP_HEIGHT, MAP_WIDTH, TILE_SIZE};
 use crate::line_of_sight::{EMustUpdateLos, LineOfSight};

@@ -1,205 +1,162 @@
 use std::collections::{HashMap, HashSet};
+use Octant::*;
 
-use Sector::*;
-
-mod new;
-pub mod other;
-pub mod my;
-
-// see
 // http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting
-// https://journal.stuffwithstuff.com/2015/09/07/what-the-hero-sees/
-// https://www.roguebasin.com/index.php?title=Field_of_Vision
 pub struct ShadowCasting {
-    origin: Tile,
-    tile_state_map: HashMap<Tile, TileState>,
+    origin: (isize, isize),
+    position_block_map: HashMap<(isize, isize), bool>,
+    visible_positions: HashSet<(isize, isize)>,
+    max_distance: usize,
 }
 
 impl ShadowCasting {
     pub fn new(
-        start_x: isize,
-        start_y: isize,
-        tiles: impl IntoIterator<Item=(isize, isize, bool)>,
+        origin: (isize, isize),
+        position_block_iter: impl IntoIterator<Item=((isize, isize), bool)>,
+        max_distance: usize,
     ) -> Self {
-        let mut tile_state_map = HashMap::new();
-
-        tiles.into_iter().for_each(|(x, y, blocking)| {
-            tile_state_map.insert(Tile::new(x, y), TileState { visible: false, blocking });
-        });
-
         ShadowCasting {
-            origin: Tile::new(start_x, start_y),
-            tile_state_map,
+            origin,
+            position_block_map: position_block_iter.into_iter().collect(),
+            visible_positions: HashSet::new(),
+            max_distance,
         }
     }
 
-    pub fn compute_los(&mut self) -> HashSet<(isize, isize)> {
-        self.mark_visible(self.origin);
+    pub fn calculate_los(mut self) -> HashSet<(isize, isize)> {
+        self.set_pos_visible(self.origin);
 
-        for sector in [North, East, South, West] {
-            let quadrant = Quadrant::new(sector, self.origin);
-            let first_row = Row::new(1, -1.0, 1.0);
-            self.scan(quadrant, first_row);
+        for octant in Octant::octants() {
+            self.scan_octant(octant, 1, 1.0, 0.0)
         }
 
-        self.tile_state_map.iter()
-            .filter(|(_, state)| state.visible)
-            .map(|(tile, _)| (tile.x, tile.y))
-            .collect()
+        self.visible_positions
     }
 
-    fn scan(&mut self, quadrant: Quadrant, mut row: Row) {
-        let mut prev_tile = None;
+    fn scan_octant(
+        &mut self,
+        octant: Octant,
+        depth: usize,
+        mut start_slope: f32,
+        end_slope: f32,
+    ) {
+        if depth == self.max_distance {
+            return;
+        }
 
-        for tile in row.tiles() {
-            if self.is_wall(quadrant, Some(tile)) || Self::is_symmetric(row, tile) {
-                self.reveal(quadrant, tile)
+        let mut prev_pos_blocks_view = false;
+
+        for i in (0..=depth).rev() {
+            let temp_pos = (i as isize, depth as isize);
+            let pos = octant.get_world_coordinate(self.origin, i, depth);
+            let left_slope = Self::calculate_left_slope(temp_pos);
+            let right_slope = Self::calculate_right_slope(temp_pos);
+
+            // if the rightmost slope of the position is in front of the visible
+            // area, move along until it is in it
+            if right_slope > start_slope {
+                continue
             }
 
-            if self.is_wall(quadrant, prev_tile) && self.is_floor(quadrant, Some(tile)) {
-                row.start_slope = Self::slope(tile);
+            // if the leftmost slope is behind the visible area,
+            // nothing can be set visible anymore. break
+            if left_slope < end_slope {
+                break;
             }
 
-            if self.is_floor(quadrant, prev_tile) && self.is_wall(quadrant, Some(tile)) {
-                let mut next_row = row.next();
-                next_row.end_slope = Self::slope(tile);
-                self.scan(quadrant, next_row)
+            if !prev_pos_blocks_view && self.pos_blocks_view(pos) {
+                self.scan_octant(octant, depth + 1, start_slope, left_slope);
+            } else if prev_pos_blocks_view && !self.pos_blocks_view(pos) {
+                start_slope = right_slope;
             }
 
-            prev_tile = Some(tile)
+            self.set_pos_visible(pos);
+
+            prev_pos_blocks_view = self.pos_blocks_view(pos)
         }
 
-        if self.is_floor(quadrant, prev_tile) {
-            self.scan(quadrant, row.next())
-        }
-    }
-
-    fn reveal(&mut self, quadrant: Quadrant, tile: Tile) {
-        self.mark_visible(quadrant.transform(tile))
-    }
-
-    fn is_wall(&self, quadrant: Quadrant, tile_opt: Option<Tile>) -> bool {
-        match tile_opt {
-            Some(tile) => self.is_blocking(quadrant.transform(tile)),
-            None => false
+        // scan the next depth only if the previous position wasn't a blocker
+        if !prev_pos_blocks_view {
+            self.scan_octant(octant, depth + 1, start_slope, end_slope)
         }
     }
 
-    fn is_floor(&self, quadrant: Quadrant, tile_opt: Option<Tile>) -> bool {
-        match tile_opt {
-            Some(tile) => self.tile_state_map.contains_key(&tile) && !self.is_blocking(quadrant.transform(tile)),
-            None => false
+    fn calculate_left_slope((x, y): (isize, isize)) -> f32 {
+        (x as f32 + 0.5) / (y as f32 - 0.5)
+    }
+
+    fn calculate_right_slope((x, y): (isize, isize)) -> f32 {
+        (x as f32 - 0.5) / (y as f32 + 0.5)
+    }
+
+    fn pos_blocks_view(&self, pos: (isize, isize)) -> bool {
+        match self.position_block_map.get(&pos) {
+            Some(blocking) => *blocking,
+            None => false,
         }
     }
 
-    fn slope(tile: Tile) -> f32 {
-        let (row_depth, col) = (tile.x, tile.y);
-        (2 * col - 1) as f32 / (2 * row_depth) as f32
-    }
-
-    fn is_symmetric(row: Row, tile: Tile) -> bool {
-        let col = tile.y;
-        col as f32 >= row.depth as f32 * row.start_slope &&
-            col as f32 <= row.depth as f32 * row.end_slope
-    }
-
-    fn is_blocking(&self, tile: Tile) -> bool {
-        match self.tile_state_map.get(&tile) {
-            Some(state) => state.blocking,
-            None => false
+    fn set_pos_visible(&mut self, pos: (isize, isize)) {
+        if self.pos_on_board(pos) {
+            self.visible_positions.insert(pos);
         }
     }
 
-    fn mark_visible(&mut self, tile: Tile) {
-        if let Some(mut state) = self.tile_state_map.get_mut(&tile) {
-            state.visible = true
-        }
-    }
-}
-
-struct TileState {
-    visible: bool,
-    blocking: bool,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct Tile {
-    x: isize,
-    y: isize,
-}
-
-impl Tile {
-    pub fn new(x: isize, y: isize) -> Self {
-        Self { x, y }
+    fn pos_on_board(&self, pos: (isize, isize)) -> bool {
+        self.position_block_map.contains_key(&pos)
     }
 }
 
 #[derive(Copy, Clone, Debug)]
-enum Sector {
-    North,
-    East,
-    South,
-    West,
+enum Octant {
+    TopLeft,
+    TopRight,
+    RightTop,
+    RightBottom,
+    BottomRight,
+    BottomLeft,
+    LeftBottom,
+    LeftTop,
 }
 
-#[derive(Copy, Clone)]
-struct Quadrant {
-    sector: Sector,
-    origin: Tile,
-}
-
-impl Quadrant {
-    fn new(sector: Sector, origin: Tile) -> Self {
-        Quadrant {
-            sector,
-            origin,
-        }
+impl Octant {
+    fn octants() -> [Octant; 8] {
+        [
+            TopLeft,
+            TopRight,
+            RightTop,
+            RightBottom,
+            BottomRight,
+            BottomLeft,
+            LeftBottom,
+            LeftTop
+        ]
     }
 
-    fn transform(&self, tile: Tile) -> Tile {
-        let (row, col) = (tile.x, tile.y);
+    fn get_world_coordinate(
+        &self,
+        origin: (isize, isize),
+        i: usize,
+        depth: usize,
+    ) -> (isize, isize) {
+        let (xx, xy, yx, yy) = self.get_diffs();
 
-        match self.sector {
-            North => Tile::new(self.origin.x + col, self.origin.y - row),
-            South => Tile::new(self.origin.x + col, self.origin.y + row),
-            East => Tile::new(self.origin.x + row, self.origin.y + col),
-            West => Tile::new(self.origin.x - row, self.origin.y + col),
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-struct Row {
-    depth: usize,
-    start_slope: f32,
-    end_slope: f32,
-}
-
-impl Row {
-    pub fn new(depth: usize, start_slope: f32, end_slope: f32) -> Self {
-        Self { depth, start_slope, end_slope }
-    }
-
-    fn next(&self) -> Row {
-        Row::new(
-            self.depth + 1,
-            self.start_slope,
-            self.end_slope,
+        (
+            origin.0 + i as isize * xx + depth as isize * xy,
+            origin.1 + i as isize * yx + depth as isize * yy
         )
     }
 
-    fn tiles(self) -> impl IntoIterator<Item=Tile> {
-        let min_col = Self::round_ties_up(self.depth as f32 * self.start_slope);
-        let max_col = Self::round_ties_down(self.depth as f32 * self.end_slope);
-
-        (min_col..=max_col).map(move |col| Tile::new(self.depth as isize, col))
-    }
-
-    fn round_ties_up(value: f32) -> isize {
-        (value + 0.5).floor() as isize
-    }
-
-    fn round_ties_down(value: f32) -> isize {
-        (value - 0.5).ceil() as isize
+    fn get_diffs(&self) -> (isize, isize, isize, isize) {
+        match self {
+            TopLeft => (-1, 0, 0, 1),
+            TopRight => (1, 0, 0, 1),
+            RightTop => (0, 1, 1, 0),
+            RightBottom => (0, 1, -1, 0),
+            BottomRight => (1, 0, 0, -1),
+            BottomLeft => (-1, 0, 0, -1),
+            LeftBottom => (0, -1, -1, 0),
+            LeftTop => (0, -1, 1, 0),
+        }
     }
 }
