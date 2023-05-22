@@ -53,10 +53,10 @@ impl<'a> ShadowCasting<'a> {
         let mut prev_pos_blocks_view = false;
 
         for i in (0..=depth).rev() {
-            let temp_pos = (i as isize, depth as isize);
+            let template_pos = (i as isize, depth as isize);
             let pos = octant.get_world_coordinate(self.origin, i, depth);
-            let left_slope = Self::calculate_left_slope(temp_pos);
-            let right_slope = Self::calculate_right_slope(temp_pos);
+            let left_slope = Self::calculate_left_slope(template_pos);
+            let right_slope = Self::calculate_right_slope(template_pos);
 
             // if the rightmost slope of the position is in front of the visible
             // area, move along until it is in it
@@ -72,7 +72,9 @@ impl<'a> ShadowCasting<'a> {
 
             if !prev_pos_blocks_view && self.pos_blocks_view(pos) {
                 self.collect_visible_positions_in_octant(octant, depth + 1, start_slope, left_slope);
-            } else if prev_pos_blocks_view && !self.pos_blocks_view(pos) {
+            }
+
+            if prev_pos_blocks_view && !self.pos_blocks_view(pos) {
                 start_slope = right_slope;
             }
 
@@ -104,6 +106,26 @@ impl<'a> ShadowCasting<'a> {
     }
 }
 
+/// \1111|2222/
+/// 8\111|222/3
+/// 88\11|22/33
+/// 888\1|2/333
+/// 8888\|/3333
+/// -----@-----
+/// 7777/|\4444
+/// 777/6|5\444
+/// 77/66|55\44
+/// 7/666|555\4
+/// /6666|5555\
+///
+/// 1 = TopLeft
+/// 2 = TopRight
+/// 3 = RightTop
+/// 4 = RightBottom
+/// 5 = BottomRight
+/// 6 = BottomLeft
+/// 7 = LeftBottom
+/// 8 = LeftTop
 #[derive(Copy, Clone, Debug)]
 enum Octant {
     TopLeft,
