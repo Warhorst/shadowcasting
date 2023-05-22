@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use shadowcasting::ShadowCasting;
@@ -48,17 +49,23 @@ fn update_los(
     pos_query: Query<&CurrentPosition>,
     tile_query: Query<&Tile>,
 ) {
+    let tiles_type_map = tile_query
+        .iter()
+        .map(|tile| ((tile.x as isize, tile.y as isize), tile.tile_type))
+        .collect::<HashMap<_, _>>();
+
     for _ in event_reader.iter() {
         let pos = pos_query.single();
 
         let shadow_casting = ShadowCasting::new(
             (pos.x as isize, pos.y as isize),
-            tile_query
-                .iter()
-                .map(|tile| ((tile.x as isize, tile.y as isize), match tile.tile_type {
+            |pos| match tiles_type_map.get(&pos) {
+                Some(tile_type) => match tile_type {
+                    TileType::Wall => true,
                     TileType::Floor => false,
-                    TileType::Wall => true
-                })),
+                }
+                None => false
+            },
             30
         );
 

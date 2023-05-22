@@ -1,39 +1,45 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use Octant::*;
 
-// http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting
-pub struct ShadowCasting {
+pub struct ShadowCasting<'a> {
+    /// The position from where the line of sight originates
     origin: (isize, isize),
-    position_block_map: HashMap<(isize, isize), bool>,
+    /// Closure which tells if if a given position blocks the view
+    position_blocks_view: Box<dyn Fn((isize, isize)) -> bool + 'a>,
+    /// The set which holds all visible positions. Initially empty
     visible_positions: HashSet<(isize, isize)>,
+    /// The maximum distance of the line of sight from the origin.
+    /// Everything beyond this distance will not be visible.
     max_distance: usize,
 }
 
-impl ShadowCasting {
+impl<'a> ShadowCasting<'a> {
     pub fn new(
         origin: (isize, isize),
-        position_block_iter: impl IntoIterator<Item=((isize, isize), bool)>,
+        positions_blocks_view: impl Fn((isize, isize)) -> bool + 'a,
         max_distance: usize,
     ) -> Self {
         ShadowCasting {
             origin,
-            position_block_map: position_block_iter.into_iter().collect(),
+            position_blocks_view: Box::new(positions_blocks_view),
             visible_positions: HashSet::new(),
             max_distance,
         }
     }
 
+    /// Calculate the line of sight in all directions and relative to origin with recursive shadow casting.
+    /// Returns a set with all visible positions.
     pub fn calculate_los(mut self) -> HashSet<(isize, isize)> {
         self.set_pos_visible(self.origin);
 
         for octant in Octant::octants() {
-            self.scan_octant(octant, 1, 1.0, 0.0)
+            self.collect_visible_positions_in_octant(octant, 1, 1.0, 0.0)
         }
 
         self.visible_positions
     }
 
-    fn scan_octant(
+    fn collect_visible_positions_in_octant(
         &mut self,
         octant: Octant,
         depth: usize,
@@ -55,7 +61,7 @@ impl ShadowCasting {
             // if the rightmost slope of the position is in front of the visible
             // area, move along until it is in it
             if right_slope > start_slope {
-                continue
+                continue;
             }
 
             // if the leftmost slope is behind the visible area,
@@ -65,7 +71,7 @@ impl ShadowCasting {
             }
 
             if !prev_pos_blocks_view && self.pos_blocks_view(pos) {
-                self.scan_octant(octant, depth + 1, start_slope, left_slope);
+                self.collect_visible_positions_in_octant(octant, depth + 1, start_slope, left_slope);
             } else if prev_pos_blocks_view && !self.pos_blocks_view(pos) {
                 start_slope = right_slope;
             }
@@ -77,7 +83,7 @@ impl ShadowCasting {
 
         // scan the next depth only if the previous position wasn't a blocker
         if !prev_pos_blocks_view {
-            self.scan_octant(octant, depth + 1, start_slope, end_slope)
+            self.collect_visible_positions_in_octant(octant, depth + 1, start_slope, end_slope)
         }
     }
 
@@ -90,20 +96,11 @@ impl ShadowCasting {
     }
 
     fn pos_blocks_view(&self, pos: (isize, isize)) -> bool {
-        match self.position_block_map.get(&pos) {
-            Some(blocking) => *blocking,
-            None => false,
-        }
+        (self.position_blocks_view)(pos)
     }
 
     fn set_pos_visible(&mut self, pos: (isize, isize)) {
-        if self.pos_on_board(pos) {
-            self.visible_positions.insert(pos);
-        }
-    }
-
-    fn pos_on_board(&self, pos: (isize, isize)) -> bool {
-        self.position_block_map.contains_key(&pos)
+        self.visible_positions.insert(pos);
     }
 }
 
@@ -133,6 +130,7 @@ impl Octant {
         ]
     }
 
+    /// Transform the given depth and index to world coordinates relative to origin.
     fn get_world_coordinate(
         &self,
         origin: (isize, isize),
