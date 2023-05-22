@@ -41,6 +41,7 @@ impl ShadowCasting {
             return;
         }
 
+        // TODO maybe just use a boolean
         let mut prev_pos = None;
 
         for i in (0..=depth).rev() {
@@ -51,14 +52,14 @@ impl ShadowCasting {
 
             // if the rightmost slope of the position is in front of the visible
             // area, move along until it is in it
-            if right_slope >= start_slope {
+            if right_slope > start_slope {
                 continue
             }
 
             // if the leftmost slope is behind the visible area,
             // nothing can be set visible anymore. Return
-            if left_slope <= end_slope {
-                return;
+            if left_slope < end_slope {
+                break;
             }
 
             if (prev_pos.is_none() || !self.pos_blocks_view(prev_pos.unwrap())) && self.pos_blocks_view(pos) {
@@ -72,23 +73,18 @@ impl ShadowCasting {
             prev_pos = Some(pos)
         }
 
-        // if the last position (0, depth) was blocking, everything behind it should also not be visible
-        if prev_pos.is_some() && self.pos_blocks_view(prev_pos.unwrap()) {
-            let new_start = Self::calculate_right_slope((0, depth as isize));
-            start_slope = new_start
+        // scan the next depth only if the previous position wasn't a blocker
+        if prev_pos.is_some() && !self.pos_blocks_view(prev_pos.unwrap()) {
+            self.scan_octant(octant, depth + 1, start_slope, end_slope)
         }
-
-        self.scan_octant(octant, depth + 1, start_slope, end_slope)
     }
 
     fn calculate_left_slope((x, y): (isize, isize)) -> f32 {
-        // (x as f32 + 0.5) / (y as f32 - 0.5)
-        (x as f32 + 1.0) / (y as f32 + 1.0)
+        (x as f32 + 0.5) / (y as f32 - 0.5)
     }
 
     fn calculate_right_slope((x, y): (isize, isize)) -> f32 {
-        // (x as f32 - 0.5) / (y as f32 + 0.5)
-        x as f32 / (y as f32 + 2.0)
+        (x as f32 - 0.5) / (y as f32 + 0.5)
     }
 
     fn pos_in_visible_area(pos: (isize, isize), start_slope: f32, end_slope: f32) -> bool {
