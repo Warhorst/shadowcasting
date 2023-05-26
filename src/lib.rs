@@ -16,12 +16,12 @@ pub struct ShadowCasting<'a> {
 impl<'a> ShadowCasting<'a> {
     pub fn new(
         origin: (isize, isize),
-        positions_blocks_view: impl Fn((isize, isize)) -> bool + 'a,
+        position_blocks_view: impl Fn((isize, isize)) -> bool + 'a,
         max_distance: usize,
     ) -> Self {
         ShadowCasting {
             origin,
-            position_blocks_view: Box::new(positions_blocks_view),
+            position_blocks_view: Box::new(position_blocks_view),
             visible_positions: HashSet::new(),
             max_distance,
         }
