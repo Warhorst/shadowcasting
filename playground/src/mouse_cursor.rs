@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use pad::{p, Position};
 use crate::constants::TILE_SIZE;
 
 pub(super) struct MouseCoursorPlugin;
@@ -22,8 +23,7 @@ pub struct CursorCoordinates(Vec2);
 
 pub struct EMouseClicked {
     pub button: PressedButton,
-    pub x: usize,
-    pub y: usize,
+    pub pos: Position,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -56,29 +56,27 @@ fn send_event_when_mouse_clicked(
     mut event_writer: EventWriter<EMouseClicked>,
 ) {
     if mouse_input.just_pressed(MouseButton::Left) {
-        let (x, y) = coordinates_to_xy(**cursor_position);
+        let pos = coordinates_to_xy(**cursor_position);
 
         event_writer.send(EMouseClicked {
-            x,
-            y,
+            pos,
             button: PressedButton::Left,
         });
     }
 
     if mouse_input.just_pressed(MouseButton::Right) {
-        let (x, y) = coordinates_to_xy(**cursor_position);
+        let pos = coordinates_to_xy(**cursor_position);
 
         event_writer.send(EMouseClicked {
-            x,
-            y,
+            pos,
             button: PressedButton::Right,
         });
     }
 }
 
-fn coordinates_to_xy(coordinates: Vec2) -> (usize, usize) {
-    (
-        ((coordinates.x + (TILE_SIZE / 2.0)) / TILE_SIZE) as usize,
-        ((coordinates.y + (TILE_SIZE / 2.0)) / TILE_SIZE) as usize,
+fn coordinates_to_xy(coordinates: Vec2) -> Position {
+    p!(
+        (coordinates.x + (TILE_SIZE / 2.0)) / TILE_SIZE,
+        (coordinates.y + (TILE_SIZE / 2.0)) / TILE_SIZE
     )
 }

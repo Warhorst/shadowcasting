@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
+use pad::{p, Position};
 use shadowcasting::ShadowCasting;
 use crate::constants::{MAP_HEIGHT, MAP_WIDTH};
 use crate::current_position::CurrentPosition;
@@ -19,11 +20,11 @@ impl Plugin for LineOfSightPlugin {
 }
 
 #[derive(Resource)]
-pub struct LineOfSight(HashSet<(usize, usize)>);
+pub struct LineOfSight(HashSet<Position>);
 
 impl LineOfSight {
-    pub fn position_visible(&self, x: usize, y: usize) -> bool {
-        self.0.contains(&(x, y))
+    pub fn position_visible(&self, pos: Position) -> bool {
+        self.0.contains(&pos)
     }
 }
 
@@ -36,7 +37,7 @@ fn create_los(
 
     for x in 0..MAP_WIDTH {
         for y in 0..MAP_HEIGHT {
-            positions.insert((x, y));
+            positions.insert(p!(x, y));
         }
     }
 
@@ -49,9 +50,9 @@ fn update_los(
     pos_query: Query<&CurrentPosition>,
     tile_query: Query<&Tile>,
 ) {
-    let tiles_type_map = tile_query
+    let pos_type_map = tile_query
         .iter()
-        .map(|tile| ((tile.x as isize, tile.y as isize), tile.tile_type))
+        .map(|tile| (tile.pos, tile.tile_type))
         .collect::<HashMap<_, _>>();
 
     for _ in event_reader.iter() {
@@ -59,20 +60,20 @@ fn update_los(
 
         let shadow_casting = ShadowCasting::new(
             (pos.x as isize, pos.y as isize),
-            |pos| match tiles_type_map.get(&pos) {
+            |pos| match pos_type_map.get(&p!(pos.0, pos.1)) {
                 Some(tile_type) => match tile_type {
                     TileType::Wall => true,
                     TileType::Floor => false,
                 }
                 None => false
             },
-            30
+            30,
         );
 
 
         let visible_points = shadow_casting.calculate_los()
             .into_iter()
-            .map(|(x, y)| (x as usize, y as usize))
+            .map(|(x, y)| p!(x, y))
             .collect();
         *los = LineOfSight(visible_points);
     }

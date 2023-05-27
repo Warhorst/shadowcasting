@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use pad::{Position, p};
 use crate::constants::*;
 use crate::line_of_sight::EMustUpdateLos;
 use crate::mouse_cursor::EMouseClicked;
@@ -15,20 +16,14 @@ impl Plugin for CurrentPositionPlugin {
     }
 }
 
-#[derive(Component)]
-pub struct CurrentPosition {
-    pub x: usize,
-    pub y: usize
-}
+#[derive(Component, Deref, DerefMut)]
+pub struct CurrentPosition(Position);
 
 fn spawn_current_pos(
     mut commands: Commands
 ) {
     commands.spawn((
-        CurrentPosition {
-            x: 0,
-            y: 0
-        },
+        CurrentPosition(p!(0, 0)),
         SpriteBundle {
             sprite: Sprite {
                 custom_size: Some(Vec2::splat(TILE_SIZE)),
@@ -47,9 +42,9 @@ fn move_position_when_right_mouse_button_clicked(
     mut query: Query<(&mut CurrentPosition, &mut Transform)>
 ) {
     for e in event_reader.iter() {
-        let (x, y) = (e.x, e.y);
+        let (x, y) = (e.pos.x, e.pos.y);
 
-        if e.button == Right && position_in_map((x, y)) {
+        if e.button == Right && position_in_map(e.pos) {
             let (mut pos, mut transform) = query.single_mut();
             pos.x = x;
             pos.y = y;
@@ -61,6 +56,6 @@ fn move_position_when_right_mouse_button_clicked(
     }
 }
 
-fn position_in_map((x, y): (usize, usize)) -> bool {
-    x < MAP_WIDTH && y < MAP_HEIGHT
+fn position_in_map(pos: Position) -> bool {
+    pos.x < MAP_WIDTH as isize && pos.y < MAP_HEIGHT as isize
 }
