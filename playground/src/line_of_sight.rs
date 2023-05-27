@@ -33,13 +33,10 @@ pub struct EMustUpdateLos;
 fn create_los(
     mut commands: Commands
 ) {
-    let mut positions = HashSet::new();
-
-    for x in 0..MAP_WIDTH {
-        for y in 0..MAP_HEIGHT {
-            positions.insert(p!(x, y));
-        }
-    }
+    let positions = p!(0, 0)
+        .iter_to(p!(MAP_WIDTH, MAP_HEIGHT))
+        .into_iter()
+        .collect();
 
     commands.insert_resource(LineOfSight(positions))
 }
