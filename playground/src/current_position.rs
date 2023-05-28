@@ -15,7 +15,8 @@ impl Plugin for CurrentPositionPlugin {
             .add_systems((
                 move_position_when_right_mouse_button_clicked,
                 move_position_when_arrow_key_was_pressed,
-                update_transform_when_position_changed
+                update_transform_when_position_changed,
+                send_los_update_when_position_changed
             ))
         ;
     }
@@ -43,18 +44,15 @@ fn spawn_current_pos(
 
 fn move_position_when_right_mouse_button_clicked(
     mut event_reader: EventReader<EMouseClicked>,
-    mut event_writer: EventWriter<EMustUpdateLos>,
     mut query: Query<&mut CurrentPosition>,
 ) {
     for e in event_reader.iter() {
-        let (x, y) = (e.pos.x, e.pos.y);
+        let event_pos = e.pos;
 
-        if e.button == Right && position_in_map(e.pos) {
+        if e.button == Right && position_in_map(event_pos) {
             let mut pos = query.single_mut();
-            pos.x = x;
-            pos.y = y;
+            **pos = event_pos;
 
-            event_writer.send(EMustUpdateLos);
             return;
         }
     }
@@ -62,28 +60,23 @@ fn move_position_when_right_mouse_button_clicked(
 
 fn move_position_when_arrow_key_was_pressed(
     input: Res<Input<KeyCode>>,
-    mut event_writer: EventWriter<EMustUpdateLos>,
     mut query: Query<&mut CurrentPosition>,
 ) {
     for mut pos in &mut query {
         if input.just_pressed(KeyCode::Up) {
             **pos = pos.neighbour_in_direction(YP);
-            event_writer.send(EMustUpdateLos)
         }
 
         if input.just_pressed(KeyCode::Down) {
             **pos = pos.neighbour_in_direction(YM);
-            event_writer.send(EMustUpdateLos)
         }
 
         if input.just_pressed(KeyCode::Left) {
             **pos = pos.neighbour_in_direction(XM);
-            event_writer.send(EMustUpdateLos)
         }
 
         if input.just_pressed(KeyCode::Right) {
             **pos = pos.neighbour_in_direction(XP);
-            event_writer.send(EMustUpdateLos)
         }
     }
 }
@@ -95,6 +88,19 @@ fn update_transform_when_position_changed(
         transform.translation = Vec3::new(pos.x as f32 * TILE_SIZE, pos.y as f32 * TILE_SIZE, 10.0);
     }
 }
+
+fn send_los_update_when_position_changed(
+    mut event_writer: EventWriter<EMustUpdateLos>,
+    query: Query<&CurrentPosition, Changed<CurrentPosition>>
+) {
+    let count = query.iter().count();
+
+    if count > 0 {
+        event_writer.send(EMustUpdateLos)
+    }
+}
+
+// send event when position changed
 
 fn position_in_map(pos: Position) -> bool {
     pos.x < MAP_WIDTH as isize && pos.y < MAP_HEIGHT as isize
