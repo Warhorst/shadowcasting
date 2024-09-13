@@ -184,8 +184,20 @@ impl Octant {
 
 #[cfg(test)]
 mod tests {
+    use pad::{p, Position};
+    use crate::ShadowCasting;
+
     #[test]
     fn works() {
+        let origin = p!(0, 0);
+        // let radius = 8;
 
+        let position_blocks_view = |pos: Position| pos == p!(3, 3) || pos == p!(4, 3);
+
+        let shadowcasting = ShadowCasting::new(origin, position_blocks_view, 15);
+
+        let positions = shadowcasting.calculate_los();
+
+        Position::print_positions(positions);
     }
 }
