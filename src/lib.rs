@@ -9,22 +9,24 @@ pub struct ShadowCasting<'a> {
     position_blocks_view: Box<dyn Fn(Position) -> bool + 'a>,
     /// The set which holds all visible positions. Initially empty
     visible_positions: HashSet<Position>,
-    /// The maximum distance of the line of sight from the origin.
-    /// Everything beyond this distance will not be visible.
-    max_distance: usize,
+    /// The radius of the area where the line of sight should be performed.
+    radius: usize,
+    /// The area in where the shadowcast should be performed
+    area: HashSet<Position>
 }
 
 impl<'a> ShadowCasting<'a> {
     pub fn new(
         origin: Position,
         position_blocks_view: impl Fn(Position) -> bool + 'a,
-        max_distance: usize,
+        radius: usize,
     ) -> Self {
         ShadowCasting {
             origin,
             position_blocks_view: Box::new(position_blocks_view),
             visible_positions: HashSet::new(),
-            max_distance,
+            radius,
+            area: origin.circle_filled(radius).into_iter().collect()
         }
     }
 
@@ -47,7 +49,7 @@ impl<'a> ShadowCasting<'a> {
         mut start_slope: f32,
         end_slope: f32,
     ) {
-        if depth == self.max_distance {
+        if depth == self.radius {
             return;
         }
 
@@ -103,7 +105,9 @@ impl<'a> ShadowCasting<'a> {
     }
 
     fn set_pos_visible(&mut self, pos: Position) {
-        self.visible_positions.insert(pos);
+        if self.area.contains(&pos) {
+            self.visible_positions.insert(pos);
+        }
     }
 }
 
@@ -190,11 +194,11 @@ mod tests {
     #[test]
     fn works() {
         let origin = p!(0, 0);
-        // let radius = 8;
+        let radius = 8;
 
         let position_blocks_view = |pos: Position| pos == p!(3, 3) || pos == p!(4, 3);
 
-        let shadowcasting = ShadowCasting::new(origin, position_blocks_view, 15);
+        let shadowcasting = ShadowCasting::new(origin, position_blocks_view, radius);
 
         let positions = shadowcasting.calculate_los();
 
