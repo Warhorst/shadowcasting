@@ -1,13 +1,31 @@
-use std::collections::HashSet;
 use pad::{p, Position};
+use std::collections::HashSet;
 use Octant::*;
 
+/// Performs recursive shadow casting from the given origin with the specified radius
+///
+/// position_in_visible_area specifies if a position is relevant for shadow casting
+/// position_blocks_view tells if a position blocks the view and acts as a wall
+pub fn shadow_cast(
+    origin: Position,
+    radius: usize,
+    position_in_visible_area: impl Fn(Position) -> bool,
+    position_blocks_view: impl Fn(Position) -> bool + 'static
+) -> HashSet<Position> {
+    ShadowCasting::new(
+        origin,
+        radius,
+        position_in_visible_area,
+        position_blocks_view,
+    ).calculate_los()
+}
+
 // implements https://www.roguebasin.com/index.php/FOV_using_recursive_shadowcasting
-pub struct ShadowCasting<'a> {
+struct ShadowCasting {
     /// The position from where the line of sight originates
     origin: Position,
     /// Closure which tells if a given position blocks the view
-    position_blocks_view: Box<dyn Fn(Position) -> bool + 'a>,
+    position_blocks_view: Box<dyn Fn(Position) -> bool + 'static>,
     /// The set which holds all visible positions. Initially empty
     visible_positions: HashSet<Position>,
     /// The radius of the area where the line of sight should be performed.
@@ -16,18 +34,23 @@ pub struct ShadowCasting<'a> {
     area: HashSet<Position>
 }
 
-impl<'a> ShadowCasting<'a> {
+impl ShadowCasting {
     pub fn new(
         origin: Position,
-        position_blocks_view: impl Fn(Position) -> bool + 'a,
         radius: usize,
+        position_in_visible_area: impl Fn(Position) -> bool,
+        position_blocks_view: impl Fn(Position) -> bool + 'static,
     ) -> Self {
         ShadowCasting {
             origin,
             position_blocks_view: Box::new(position_blocks_view),
             visible_positions: HashSet::new(),
             radius,
-            area: origin.circle_filled(radius).into_iter().collect()
+            area: origin
+                .circle_filled(radius)
+                .into_iter()
+                .filter(|p| position_in_visible_area(*p))
+                .collect()
         }
     }
 
@@ -189,19 +212,23 @@ impl Octant {
 
 #[cfg(test)]
 mod tests {
+    use crate::shadow_cast;
     use pad::{p, Position};
-    use crate::ShadowCasting;
 
     #[test]
     fn works() {
         let origin = p!(0, 0);
         let radius = 8;
 
+        let position_in_visible_area = |pos: Position| pos.x >= -2 && pos.y >= -2;
         let position_blocks_view = |pos: Position| pos == p!(3, 3) || pos == p!(4, 3);
 
-        let shadowcasting = ShadowCasting::new(origin, position_blocks_view, radius);
-
-        let positions = shadowcasting.calculate_los();
+        let positions = shadow_cast(
+            origin,
+            radius,
+            position_in_visible_area,
+            position_blocks_view
+        );
 
         Position::print_positions(positions);
     }
