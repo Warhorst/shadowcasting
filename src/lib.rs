@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use pad::{p, Position};
 use Octant::*;
 
+// implements https://www.roguebasin.com/index.php/FOV_using_recursive_shadowcasting
 pub struct ShadowCasting<'a> {
     /// The position from where the line of sight originates
     origin: Position,
