@@ -2,6 +2,9 @@ use pad::{p, Position};
 use std::collections::HashSet;
 use Octant::*;
 
+// todo this is not super performant, as positions in the not visible area still get computed, just to be discarded right after
+//  also, there is this alternative algorithm which i didn't manage to implement correctly, might be worth a try: https://www.albertford.com/shadowcasting/
+
 /// Performs recursive shadow casting from the given origin with the specified radius
 ///
 /// position_in_visible_area specifies if a position is relevant for shadow casting
