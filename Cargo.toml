@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 pad = { git = "https://github.com/Warhorst/pad.git" }
+
+[workspace]
+members = ["playground"]
