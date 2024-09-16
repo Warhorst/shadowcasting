@@ -1,6 +1,7 @@
-use std::collections::HashSet;
 use std::io::Write;
-use pad::{p, Position, PositionPrinter};
+
+use pad::{Bounds, p, Position, PositionPrinter};
+
 use shadowcasting::shadow_cast;
 
 fn main() {
@@ -9,13 +10,13 @@ fn main() {
 
     let mut current_position = p!(0, 0);
     let radius = 12;
-    let positions = p!(-15, -15).iter_to(p!(15, 15)).collect::<HashSet<_>>();
+    let bounds = Bounds::new(-15, -15, 15, 15);
     let walls = [
         p!(5, 5),
         p!(6, 5),
     ];
 
-    let position_in_visible_area = |pos: Position| positions.contains(&pos);
+    let position_in_visible_area = |pos: Position| pos.in_bounds(bounds);
     let position_blocks_view = move |pos: Position| walls.contains(&pos);
 
     loop {
@@ -28,17 +29,18 @@ fn main() {
 
         PositionPrinter::new()
             .draw_axis(false)
-            .position_mapping(move |pos, _| if pos == current_position {
+            .bounds(Bounds::new(-15, -15, 15, 15))
+            .position_mapping(move |pos, positions| if pos == current_position {
                 'P'
-            } else if los.contains(&pos) && walls.contains(&pos) {
+            } else if positions.contains(&pos) && walls.contains(&pos) {
                 'V'
-            } else if los.contains(&pos) {
+            } else if positions.contains(&pos) {
                 ' '
             } else if walls.contains(&pos) {
                 'W'
             } else {
                 '#'
-            }).print(positions.iter().cloned());
+            }).print(los);
 
         buffer.clear();
         stdin.read_line(&mut buffer).unwrap();
