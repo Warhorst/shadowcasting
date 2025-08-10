@@ -1,5 +1,6 @@
-use pad::{p, Position};
+use pad::p;
 use std::collections::HashSet;
+use pad::position::Position;
 use Octant::*;
 
 // todo this is not super performant, as positions in the not visible area still get computed, just to be discarded right after
@@ -216,7 +217,8 @@ impl Octant {
 #[cfg(test)]
 mod tests {
     use crate::shadow_cast;
-    use pad::{p, Position};
+    use pad::p;
+    use pad::position::Position;
 
     #[test]
     fn works() {
@@ -226,13 +228,14 @@ mod tests {
         let position_in_visible_area = |pos: Position| pos.x >= -2 && pos.y >= -2;
         let position_blocks_view = |pos: Position| pos == p!(3, 3) || pos == p!(4, 3);
 
-        let positions = shadow_cast(
+        let _positions = shadow_cast(
             origin,
             radius,
             position_in_visible_area,
             position_blocks_view
         );
 
-        Position::print_positions(positions);
+        // todo maybe create a better playground with a tui for this
+        //Position::print_positions(positions);
     }
 }

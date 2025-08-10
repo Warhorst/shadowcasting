@@ -1,7 +1,8 @@
 use std::io::Write;
-
-use pad::{Bounds, p, Position, PositionPrinter};
-
+use pad::bounds::Bounds;
+use pad::p;
+use pad::position::Position;
+use pad::position_printer::PositionPrinter;
 use shadowcasting::shadow_cast;
 
 fn main() {
@@ -30,17 +31,17 @@ fn main() {
         PositionPrinter::new()
             .draw_axis(false)
             .bounds(Bounds::new(-15, -15, 15, 15))
-            .position_mapping(move |pos, positions| if pos == current_position {
+            .print_with_mapping(los.clone(), move |pos| if pos == current_position {
                 'P'
-            } else if positions.contains(&pos) && walls.contains(&pos) {
+            } else if los.contains(&pos) && walls.contains(&pos) {
                 'V'
-            } else if positions.contains(&pos) {
+            } else if los.contains(&pos) {
                 ' '
             } else if walls.contains(&pos) {
                 'W'
             } else {
                 '#'
-            }).print(los);
+            });
 
         buffer.clear();
         stdin.read_line(&mut buffer).unwrap();
