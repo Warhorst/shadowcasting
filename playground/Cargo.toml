@@ -1,8 +1,8 @@
 [package]
 name = "playground"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 shadowcasting = {path = "../../shadowcasting"}
-pad = { git = "https://github.com/Warhorst/pad.git", tag = "1.0.0"}
+pad = { git = "https://github.com/Warhorst/pad.git", tag = "1.2.0"}
