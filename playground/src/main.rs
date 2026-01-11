@@ -1,67 +1,164 @@
-use std::io::Write;
-use pad::bounds::Bounds;
-use pad::p;
-use pad::position::Position;
-use pad::position_printer::PositionPrinter;
-use shadowcasting::shadow_cast;
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use pad::{p, position::Position};
+use ratatui::{
+    DefaultTerminal, Frame,
+    prelude::{Buffer, Rect},
+    style::{Color, Stylize},
+    symbols::{Marker, border},
+    text::Line,
+    widgets::{
+        Block, Widget,
+        canvas::{Canvas, Points},
+    },
+};
+use std::collections::HashSet;
 
-fn main() {
-    let stdin = std::io::stdin();
-    let mut buffer = String::new();
+fn main() -> std::io::Result<()> {
+    ratatui::run(|t| App::default().run(t))
+}
 
-    let mut current_position = p!(0, 0);
-    let radius = 12;
-    let bounds = Bounds::new(-15, -15, 15, 15);
-    let walls = [
-        p!(5, 5),
-        p!(6, 5),
-    ];
+#[derive(Debug)]
+struct App {
+    should_exit: bool,
+    /// The position from which the shadowcast gets casted
+    origin: Position,
+    /// All the positions of the walls which block the view
+    walls: HashSet<Position>,
+    /// All the visible positions calculated by the shadowcast
+    visible_positions: HashSet<Position>,
+}
 
-    let position_in_visible_area = |pos: Position| pos.in_bounds(bounds);
-    let position_blocks_view = move |pos: Position| walls.contains(&pos);
-
-    loop {
-        clear_screen();
-        buffer.clear();
-
-        let los = shadow_cast(current_position, radius, position_in_visible_area, position_blocks_view);
-
-        std::io::stdout().flush().unwrap();
-
-        PositionPrinter::new()
-            .draw_axis(false)
-            .bounds(Bounds::new(-15, -15, 15, 15))
-            .print_with_mapping(los.clone(), move |pos| if pos == current_position {
-                'P'
-            } else if los.contains(&pos) && walls.contains(&pos) {
-                'V'
-            } else if los.contains(&pos) {
-                ' '
-            } else if walls.contains(&pos) {
-                'W'
-            } else {
-                '#'
-            });
-
-        buffer.clear();
-        stdin.read_line(&mut buffer).unwrap();
-
-        let input = buffer.trim();
-
-        match input {
-            "w" => current_position = current_position + p!(0, 1),
-            "s" => current_position = current_position + p!(0, -1),
-            "a" => current_position = current_position + p!(- 1, 0),
-            "d" => current_position = current_position + p!(1, 0),
-            "exit" => break,
-            _ => {}
-        }
+impl Default for App {
+    fn default() -> Self {
+        let mut app = App {
+            should_exit: false,
+            origin: p!(10, 10),
+            walls: HashSet::new(),
+            visible_positions: HashSet::new(),
+        };
+        app.visible_positions = app.shadowcast();
+        app
     }
 }
 
-fn clear_screen() {
-    // Escape sequence to clear the screen and move the cursor to the top-left
-    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-    std::io::stdout().flush().unwrap();
+impl App {
+    pub fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+    ) -> std::io::Result<()> {
+        while !self.should_exit {
+            terminal.draw(|frame| self.draw(frame))?;
+            self.handle_events()?;
+        }
+
+        Ok(())
+    }
+
+    fn draw(
+        &self,
+        frame: &mut Frame,
+    ) {
+        frame.render_widget(self, frame.area());
+    }
+
+    fn handle_events(&mut self) -> std::io::Result<()> {
+        match event::read()? {
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                match key_event.code {
+                    KeyCode::Esc => self.should_exit = true,
+                    KeyCode::Char('a') => {
+                        self.origin.x -= 1;
+                        self.visible_positions = self.shadowcast()
+                    }
+                    KeyCode::Char('d') => {
+                        self.origin.x += 1;
+                        self.visible_positions = self.shadowcast()
+                    }
+                    KeyCode::Char('s') => {
+                        self.origin.y -= 1;
+                        self.visible_positions = self.shadowcast()
+                    }
+                    KeyCode::Char('w') => {
+                        self.origin.y += 1;
+                        self.visible_positions = self.shadowcast()
+                    }
+                    KeyCode::Char(' ') => {
+                        if self.walls.contains(&self.origin) {
+                            self.walls.remove(&self.origin);
+                            self.visible_positions = self.shadowcast();
+                        } else {
+                            self.walls.insert(self.origin);
+                            self.visible_positions = self.shadowcast();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        };
+
+        Ok(())
+    }
+
+    fn shadowcast(&self) -> HashSet<Position> {
+        shadowcasting::shadow_cast(self.origin, 15, |_| true, |pos| self.walls.contains(&pos))
+    }
 }
 
+impl Widget for &App {
+    fn render(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
+        let title = Line::from(" Shadowcasting ".bold());
+        let instructions = Line::from(vec![
+            " Move up".into(),
+            " <w>".blue().bold(),
+            " Move left".into(),
+            " <a>".blue().bold(),
+            " Move down".into(),
+            " <s>".blue().bold(),
+            " Move rigt".into(),
+            " <d>".blue().bold(),
+            " Toggle wall".into(),
+            " <Space>".blue().bold(),
+            " Quit".into(),
+            " <Esc> ".blue().bold(),
+        ]);
+        let block = Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::THICK);
+
+        Canvas::default()
+            .block(block)
+            .x_bounds([0.0, f64::from(area.width)])
+            .y_bounds([0.0, f64::from(area.height)])
+            .marker(Marker::Block)
+            .background_color(Color::Gray)
+            .paint(|ctx| {
+                let visible = self
+                    .visible_positions
+                    .iter()
+                    .copied()
+                    .map(|pos| (pos.x as f64, pos.y as f64))
+                    .collect::<Vec<_>>();
+                ctx.draw(&Points::new(&visible, Color::White));
+
+                ctx.draw(&Points::new(
+                    &[(self.origin.x as f64, self.origin.y as f64)],
+                    Color::Blue,
+                ));
+
+                let walls = self
+                    .walls
+                    .iter()
+                    .copied()
+                    .map(|pos| (pos.x as f64, pos.y as f64))
+                    .collect::<Vec<_>>();
+                ctx.draw(&Points::new(&walls, Color::Red));
+            })
+            .render(area, buf);
+    }
+}

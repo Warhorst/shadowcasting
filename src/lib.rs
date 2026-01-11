@@ -14,7 +14,7 @@ pub fn shadow_cast(
     origin: Position,
     radius: usize,
     position_in_visible_area: impl Fn(Position) -> bool,
-    position_blocks_view: impl Fn(Position) -> bool + 'static
+    position_blocks_view: impl Fn(Position) -> bool
 ) -> HashSet<Position> {
     ShadowCasting::new(
         origin,
@@ -25,11 +25,11 @@ pub fn shadow_cast(
 }
 
 // implements https://www.roguebasin.com/index.php/FOV_using_recursive_shadowcasting
-struct ShadowCasting {
+struct ShadowCasting<'a> {
     /// The position from where the line of sight originates
     origin: Position,
     /// Closure which tells if a given position blocks the view
-    position_blocks_view: Box<dyn Fn(Position) -> bool + 'static>,
+    position_blocks_view: Box<dyn Fn(Position) -> bool + 'a>,
     /// The set which holds all visible positions. Initially empty
     visible_positions: HashSet<Position>,
     /// The radius of the area where the line of sight should be performed.
@@ -38,12 +38,12 @@ struct ShadowCasting {
     area: HashSet<Position>
 }
 
-impl ShadowCasting {
+impl<'a> ShadowCasting<'a> {
     pub fn new(
         origin: Position,
         radius: usize,
         position_in_visible_area: impl Fn(Position) -> bool,
-        position_blocks_view: impl Fn(Position) -> bool + 'static,
+        position_blocks_view: impl Fn(Position) -> bool + 'a,
     ) -> Self {
         ShadowCasting {
             origin,

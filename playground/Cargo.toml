@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ratatui = "0.30.0"
+crossterm = "0.29.0"
 shadowcasting = {path = "../../shadowcasting"}
 pad = { git = "https://github.com/Warhorst/pad.git", tag = "1.2.0"}
