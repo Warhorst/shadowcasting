@@ -101,7 +101,7 @@ impl App {
     }
 
     fn shadowcast(&self) -> HashSet<Position> {
-        shadowcasting::shadow_cast(self.origin, 15, |_| true, |pos| self.walls.contains(&pos))
+        shadowcasting::shadow_cast(self.origin, 15, |pos| self.walls.contains(&pos))
     }
 }
 

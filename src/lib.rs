@@ -1,7 +1,7 @@
-use pad::p;
-use std::collections::HashSet;
-use pad::position::Position;
 use Octant::*;
+use pad::p;
+use pad::position::Position;
+use std::collections::HashSet;
 
 // todo this is not super performant, as positions in the not visible area still get computed, just to be discarded right after
 //  also, there is this alternative algorithm which i didn't manage to implement correctly, might be worth a try: https://www.albertford.com/shadowcasting/
@@ -13,15 +13,9 @@ use Octant::*;
 pub fn shadow_cast(
     origin: Position,
     radius: usize,
-    position_in_visible_area: impl Fn(Position) -> bool,
-    position_blocks_view: impl Fn(Position) -> bool
+    position_blocks_view: impl Fn(Position) -> bool,
 ) -> HashSet<Position> {
-    ShadowCasting::new(
-        origin,
-        radius,
-        position_in_visible_area,
-        position_blocks_view,
-    ).calculate_los()
+    ShadowCasting::new(origin, radius, position_blocks_view).calculate_los()
 }
 
 // implements https://www.roguebasin.com/index.php/FOV_using_recursive_shadowcasting
@@ -34,15 +28,12 @@ struct ShadowCasting<'a> {
     visible_positions: HashSet<Position>,
     /// The radius of the area where the line of sight should be performed.
     radius: usize,
-    /// The area in where the shadowcast should be performed
-    area: HashSet<Position>
 }
 
 impl<'a> ShadowCasting<'a> {
     pub fn new(
         origin: Position,
         radius: usize,
-        position_in_visible_area: impl Fn(Position) -> bool,
         position_blocks_view: impl Fn(Position) -> bool + 'a,
     ) -> Self {
         ShadowCasting {
@@ -50,11 +41,6 @@ impl<'a> ShadowCasting<'a> {
             position_blocks_view: Box::new(position_blocks_view),
             visible_positions: HashSet::new(),
             radius,
-            area: origin
-                .circle_filled(radius)
-                .into_iter()
-                .filter(|p| position_in_visible_area(*p))
-                .collect()
         }
     }
 
@@ -102,7 +88,12 @@ impl<'a> ShadowCasting<'a> {
             }
 
             if !prev_pos_blocks_view && self.pos_blocks_view(pos) {
-                self.collect_visible_positions_in_octant(octant, depth + 1, start_slope, left_slope);
+                self.collect_visible_positions_in_octant(
+                    octant,
+                    depth + 1,
+                    start_slope,
+                    left_slope,
+                );
             }
 
             if prev_pos_blocks_view && !self.pos_blocks_view(pos) {
@@ -128,14 +119,18 @@ impl<'a> ShadowCasting<'a> {
         (pos.x as f32 - 0.5) / (pos.y as f32 + 0.5)
     }
 
-    fn pos_blocks_view(&self, pos: Position) -> bool {
+    fn pos_blocks_view(
+        &self,
+        pos: Position,
+    ) -> bool {
         (self.position_blocks_view)(pos)
     }
 
-    fn set_pos_visible(&mut self, pos: Position) {
-        if self.area.contains(&pos) {
-            self.visible_positions.insert(pos);
-        }
+    fn set_pos_visible(
+        &mut self,
+        pos: Position,
+    ) {
+        self.visible_positions.insert(pos);
     }
 }
 
@@ -181,7 +176,7 @@ impl Octant {
             BottomRight,
             BottomLeft,
             LeftBottom,
-            LeftTop
+            LeftTop,
         ]
     }
 
@@ -211,31 +206,5 @@ impl Octant {
             LeftBottom => (0, -1, -1, 0),
             LeftTop => (0, -1, 1, 0),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::shadow_cast;
-    use pad::p;
-    use pad::position::Position;
-
-    #[test]
-    fn works() {
-        let origin = p!(0, 0);
-        let radius = 8;
-
-        let position_in_visible_area = |pos: Position| pos.x >= -2 && pos.y >= -2;
-        let position_blocks_view = |pos: Position| pos == p!(3, 3) || pos == p!(4, 3);
-
-        let _positions = shadow_cast(
-            origin,
-            radius,
-            position_in_visible_area,
-            position_blocks_view
-        );
-
-        // todo maybe create a better playground with a tui for this
-        //Position::print_positions(positions);
     }
 }
