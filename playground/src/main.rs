@@ -6,10 +6,7 @@ use ratatui::{
     style::{Color, Stylize},
     symbols::{Marker, border},
     text::Line,
-    widgets::{
-        Block, Widget,
-        canvas::{Canvas, Painter, Shape},
-    },
+    widgets::{Block, Widget, canvas::Canvas},
 };
 use ratatui_tools::cells::Cells;
 use std::collections::HashSet;

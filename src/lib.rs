@@ -3,13 +3,13 @@ use pad::p;
 use pad::position::Position;
 use std::collections::HashSet;
 
-// todo this is not super performant, as positions in the not visible area still get computed, just to be discarded right after
-//  also, there is this alternative algorithm which i didn't manage to implement correctly, might be worth a try: https://www.albertford.com/shadowcasting/
+// TODO maybe add an optional parameter to limit the area (The shadow cast will scan the whole octant if not limited)
 
 /// Performs recursive shadow casting from the given origin with the specified radius
 ///
-/// position_in_visible_area specifies if a position is relevant for shadow casting
-/// position_blocks_view tells if a position blocks the view and acts as a wall
+/// * `origin` - The position from where the shadows will be cast
+/// * `radius` - The distance from the origin to the edge of the max view range
+/// * `position_blocks_view` - Tells if a position blocks the view and acts as a wall
 pub fn shadow_cast(
     origin: Position,
     radius: usize,
@@ -18,7 +18,6 @@ pub fn shadow_cast(
     ShadowCasting::new(origin, radius, position_blocks_view).calculate_los()
 }
 
-// implements https://www.roguebasin.com/index.php/FOV_using_recursive_shadowcasting
 struct ShadowCasting<'a> {
     /// The position from where the line of sight originates
     origin: Position,
@@ -31,7 +30,7 @@ struct ShadowCasting<'a> {
 }
 
 impl<'a> ShadowCasting<'a> {
-    pub fn new(
+    fn new(
         origin: Position,
         radius: usize,
         position_blocks_view: impl Fn(Position) -> bool + 'a,
@@ -46,11 +45,10 @@ impl<'a> ShadowCasting<'a> {
 
     /// Calculate the line of sight in all directions and relative to origin with recursive shadow casting.
     /// Returns a set with all visible positions.
-    pub fn calculate_los(mut self) -> HashSet<Position> {
+    fn calculate_los(mut self) -> HashSet<Position> {
         self.set_pos_visible(self.origin);
 
         for octant in Octant::octants() {
-            // self.cast(Octant::TopLeft, 1, 1.0, 0.0);
             self.cast(octant, 1, 1.0, 0.0);
         }
 
@@ -72,7 +70,6 @@ impl<'a> ShadowCasting<'a> {
             for x in (0..=y).rev() {
                 let pos = octant.get_world_coordinate(self.origin, x, y);
 
-                // let slope = (pos.y - self.origin.y) / (pos.x - self.origin.x);
                 let left_slope = (x as f32 + 0.5) / (y as f32 - 0.5);
                 let right_slope = (x as f32 - 0.5) / (y as f32 + 0.5);
 
@@ -112,69 +109,6 @@ impl<'a> ShadowCasting<'a> {
                 break;
             }
         }
-    }
-
-    fn collect_visible_positions_in_octant(
-        &mut self,
-        octant: Octant,
-        depth: usize,
-        mut start_slope: f32,
-        end_slope: f32,
-    ) {
-        if depth == self.radius {
-            return;
-        }
-
-        let mut prev_pos_blocks_view = false;
-
-        for i in (0..=depth).rev() {
-            let template_pos = p!(i, depth);
-            let pos = octant.get_world_coordinate(self.origin, i, depth);
-            let left_slope = Self::calculate_left_slope(template_pos);
-            let right_slope = Self::calculate_right_slope(template_pos);
-
-            // if the rightmost slope of the position is in front of the visible
-            // area, move along until it is in it
-            if right_slope > start_slope {
-                continue;
-            }
-
-            // if the leftmost slope is behind the visible area,
-            // nothing can be set visible anymore. break
-            if left_slope < end_slope {
-                break;
-            }
-
-            if !prev_pos_blocks_view && self.pos_blocks_view(pos) {
-                self.collect_visible_positions_in_octant(
-                    octant,
-                    depth + 1,
-                    start_slope,
-                    left_slope,
-                );
-            }
-
-            if prev_pos_blocks_view && !self.pos_blocks_view(pos) {
-                start_slope = right_slope;
-            }
-
-            self.set_pos_visible(pos);
-
-            prev_pos_blocks_view = self.pos_blocks_view(pos)
-        }
-
-        // scan the next depth only if the previous position wasn't a blocker
-        if !prev_pos_blocks_view {
-            self.collect_visible_positions_in_octant(octant, depth + 1, start_slope, end_slope)
-        }
-    }
-
-    fn calculate_left_slope(pos: Position) -> f32 {
-        (pos.x as f32 + 0.5) / (pos.y as f32 - 0.5)
-    }
-
-    fn calculate_right_slope(pos: Position) -> f32 {
-        (pos.x as f32 - 0.5) / (pos.y as f32 + 0.5)
     }
 
     fn pos_blocks_view(
