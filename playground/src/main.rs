@@ -8,9 +8,10 @@ use ratatui::{
     text::Line,
     widgets::{
         Block, Widget,
-        canvas::{Canvas, Points},
+        canvas::{Canvas, Painter, Shape},
     },
 };
+use ratatui_tools::cells::Cells;
 use std::collections::HashSet;
 
 fn main() -> std::io::Result<()> {
@@ -101,7 +102,7 @@ impl App {
     }
 
     fn shadowcast(&self) -> HashSet<Position> {
-        shadowcasting::shadow_cast(self.origin, 15, |pos| self.walls.contains(&pos))
+        shadowcasting::shadow_cast(self.origin, 16, |pos| self.walls.contains(&pos))
     }
 }
 
@@ -142,22 +143,29 @@ impl Widget for &App {
                     .visible_positions
                     .iter()
                     .copied()
-                    .map(|pos| (pos.x as f64, pos.y as f64))
+                    .map(|pos| (pos.x, pos.y))
                     .collect::<Vec<_>>();
-                ctx.draw(&Points::new(&visible, Color::White));
+                ctx.draw(&Cells::new(&visible, Color::White));
 
-                ctx.draw(&Points::new(
-                    &[(self.origin.x as f64, self.origin.y as f64)],
-                    Color::Blue,
-                ));
+                ctx.draw(&Cells::new(&[(self.origin.x, self.origin.y)], Color::Blue));
 
-                let walls = self
+                let visible_walls = self
                     .walls
                     .iter()
                     .copied()
-                    .map(|pos| (pos.x as f64, pos.y as f64))
+                    .filter(|p| self.visible_positions.contains(p))
+                    .map(|pos| (pos.x, pos.y))
                     .collect::<Vec<_>>();
-                ctx.draw(&Points::new(&walls, Color::Red));
+                ctx.draw(&Cells::new(&visible_walls, Color::Red));
+
+                let shadowed_walls = self
+                    .walls
+                    .iter()
+                    .copied()
+                    .filter(|p| !self.visible_positions.contains(p))
+                    .map(|pos| (pos.x, pos.y))
+                    .collect::<Vec<_>>();
+                ctx.draw(&Cells::new(&shadowed_walls, Color::DarkGray));
             })
             .render(area, buf);
     }
