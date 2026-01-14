@@ -4,11 +4,11 @@ use ratatui::{
     DefaultTerminal, Frame,
     prelude::{Buffer, Rect},
     style::{Color, Stylize},
-    symbols::{Marker, border},
+    symbols::border,
     text::Line,
-    widgets::{Block, Widget, canvas::Canvas},
+    widgets::{Block, Widget},
 };
-use ratatui_tools::cells::Cells;
+use ratatui_tools::tilemap::{Char, TileMap};
 use std::collections::HashSet;
 
 fn main() -> std::io::Result<()> {
@@ -73,11 +73,11 @@ impl App {
                         self.visible_positions = self.shadowcast()
                     }
                     KeyCode::Char('s') => {
-                        self.origin.y -= 1;
+                        self.origin.y += 1;
                         self.visible_positions = self.shadowcast()
                     }
                     KeyCode::Char('w') => {
-                        self.origin.y += 1;
+                        self.origin.y -= 1;
                         self.visible_positions = self.shadowcast()
                     }
                     KeyCode::Char(' ') => {
@@ -129,40 +129,34 @@ impl Widget for &App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        Canvas::default()
+        TileMap::default()
             .block(block)
-            .x_bounds([0.0, f64::from(area.width)])
-            .y_bounds([0.0, f64::from(area.height)])
-            .marker(Marker::Block)
-            .background_color(Color::Gray)
-            .paint(|ctx| {
-                let visible = self
-                    .visible_positions
-                    .iter()
-                    .copied()
-                    .map(|pos| (pos.x, pos.y))
-                    .collect::<Vec<_>>();
-                ctx.draw(&Cells::new(&visible, Color::White));
+            .paint(|tiles| {
+                // Draw the visible positions
+                self.visible_positions.iter().copied().for_each(|pos| {
+                    tiles.set_tile(
+                        pos.x,
+                        pos.y,
+                        Char::new(' ', Color::White).bg(Color::Rgb(150, 150, 150)),
+                    )
+                });
 
-                ctx.draw(&Cells::new(&[(self.origin.x, self.origin.y)], Color::Blue));
-
-                let visible_walls = self
-                    .walls
+                // Draw the visible walls
+                self.walls
                     .iter()
                     .copied()
                     .filter(|p| self.visible_positions.contains(p))
-                    .map(|pos| (pos.x, pos.y))
-                    .collect::<Vec<_>>();
-                ctx.draw(&Cells::new(&visible_walls, Color::Red));
+                    .for_each(|p| tiles.set_tile(p.x, p.y, Char::new('#', Color::Gray)));
 
-                let shadowed_walls = self
-                    .walls
+                // Draw the walls which are shadowed
+                self.walls
                     .iter()
                     .copied()
                     .filter(|p| !self.visible_positions.contains(p))
-                    .map(|pos| (pos.x, pos.y))
-                    .collect::<Vec<_>>();
-                ctx.draw(&Cells::new(&shadowed_walls, Color::DarkGray));
+                    .for_each(|p| tiles.set_tile(p.x, p.y, Char::new('#', Color::DarkGray)));
+
+                // Draw origin
+                tiles.set_tile(self.origin.x, self.origin.y, Char::new('@', Color::Black));
             })
             .render(area, buf);
     }
